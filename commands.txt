@@ -1,0 +1,110 @@
+ELEC 475 Lab 2 - exact commands used to produce every result in the report
+==========================================================================
+Run from the Lab 2 root folder with the virtual environment active:
+    .\.venv\Scripts\Activate.ps1        (Windows PowerShell)
+Hardware: NVIDIA GeForce RTX 3060 Ti, CUDA build of PyTorch.
+All runs: Adam, lr 1e-3, batch size 128, seed 42 unless stated.
+Logs were captured by prefixing "python -X utf8 -u" and appending
+"2>&1 | Tee-Object -FilePath logs\<name>.log" (see run_all.ps1 / run_extra.ps1);
+-X utf8 is needed on Windows so torchinfo's table prints when output is piped.
+
+Code changes to the starter template (see report, Section 3):
+  - utils/dataset.py : Tiny ImageNet validation now reads val/images + val_annotations.txt
+                       (the template evaluated on the training folder).
+  - utils/profiler.py: compare_model_complexities moves each model to the device before profiling.
+  - utils/transforms.py: RandomCrop(64, padding=4, reflect) + RandomHorizontalFlip(0.5)
+                       + ColorJitter(0.2, 0.2, 0.2) implemented.
+
+
+# ---------------------------------------------------------------------------
+# 0. Environment and pre-lab
+# ---------------------------------------------------------------------------
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m pip install --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/cu126
+python -m utils.eda --dataset both
+python prelab_verify.py
+
+
+# ---------------------------------------------------------------------------
+# 1. Architecture checks
+# ---------------------------------------------------------------------------
+python -m models.lenet
+python -m models.lenet_modern
+python -m models.alexnet
+
+
+# ---------------------------------------------------------------------------
+# 2. In-lab models (CIFAR-10, 5 epochs)
+# ---------------------------------------------------------------------------
+python train.py --model lenet --dataset cifar10 --epochs 5 --batch-size 128 --seed 42 --no-augment --save-model checkpoints/lenet_baseline.pth --plot-file plots/loss_lenet.png
+python train.py --model lenet_modern --dataset cifar10 --epochs 5 --batch-size 128 --seed 42 --no-augment --save-model checkpoints/lenet_modern.pth --plot-file plots/loss_lenet_modern.png
+
+
+# ---------------------------------------------------------------------------
+# 3. Post-lab Step 2: normalization study (CIFAR-10, 10 epochs, seed 42)
+# ---------------------------------------------------------------------------
+python train.py --model alexnet --norm none --dataset cifar10 --epochs 10 --seed 42 --no-augment --save-model checkpoints/alexnet_none.pth --plot-file plots/loss_alexnet_none.png
+python train.py --model alexnet --norm lrn --dataset cifar10 --epochs 10 --seed 42 --no-augment --save-model checkpoints/alexnet_lrn.pth --plot-file plots/loss_alexnet_lrn.png
+python train.py --model alexnet --norm bn --dataset cifar10 --epochs 10 --seed 42 --no-augment --save-model checkpoints/alexnet_bn.pth --plot-file plots/loss_alexnet_bn.png
+
+
+# ---------------------------------------------------------------------------
+# 4. Post-lab Step 3: augmentation study (CIFAR-10, 15 epochs)
+# ---------------------------------------------------------------------------
+python train.py --model alexnet --norm bn --dataset cifar10 --epochs 15 --seed 42 --no-augment --save-model checkpoints/alexnet_no_aug.pth --plot-file plots/loss_no_aug.png
+python train.py --model alexnet --norm bn --dataset cifar10 --epochs 15 --seed 42 --save-model checkpoints/alexnet_with_aug.pth --plot-file plots/loss_with_aug.png
+
+
+# ---------------------------------------------------------------------------
+# 5. Post-lab Step 4: Tiny ImageNet (10 epochs, corrected validation split)
+# ---------------------------------------------------------------------------
+python train.py --model alexnet --norm bn --dataset tiny_imagenet --epochs 10 --seed 42 --no-augment --save-model checkpoints/alexnet_tiny_imagenet.pth --plot-file plots/loss_tiny_imagenet.png
+python train.py --model lenet --dataset tiny_imagenet --epochs 10 --seed 42 --no-augment --save-model checkpoints/lenet_tiny.pth --plot-file plots/loss_lenet_tiny.png
+python train.py --model lenet_modern --dataset tiny_imagenet --epochs 10 --seed 42 --no-augment --save-model checkpoints/lenet_modern_tiny.pth --plot-file plots/loss_lenet_modern_tiny.png
+python train.py --model alexnet --norm none --dataset tiny_imagenet --epochs 10 --seed 42 --no-augment --save-model checkpoints/alexnet_none_tiny.pth --plot-file plots/loss_alexnet_none_tiny.png
+python train.py --model alexnet --norm lrn --dataset tiny_imagenet --epochs 10 --seed 42 --no-augment --save-model checkpoints/alexnet_lrn_tiny.pth --plot-file plots/loss_alexnet_lrn_tiny.png
+python train.py --model alexnet --norm bn --dataset tiny_imagenet --epochs 10 --seed 42 --save-model checkpoints/alexnet_aug_tiny.pth --plot-file plots/loss_alexnet_aug_tiny.png
+
+
+# ---------------------------------------------------------------------------
+# 6. PyTorch Model Zoo AlexNet (10 epochs)
+# ---------------------------------------------------------------------------
+python train.py --model zoo_alexnet --dataset cifar10 --epochs 10 --seed 42 --no-augment --save-model checkpoints/zoo_alexnet.pth --plot-file plots/loss_zoo_alexnet.png
+python train.py --model zoo_alexnet --dataset tiny_imagenet --epochs 10 --seed 42 --no-augment --save-model checkpoints/zoo_alexnet_tiny.pth --plot-file plots/loss_zoo_alexnet_tiny.png
+
+
+# ---------------------------------------------------------------------------
+# 7. Extended ablations: LRN collapse check (Tiny ImageNet, 10 epochs)
+# ---------------------------------------------------------------------------
+python train.py --model alexnet --norm lrn --dataset tiny_imagenet --epochs 10 --seed 43 --no-augment --save-model checkpoints/alexnet_lrn_tiny_s43.pth --plot-file plots/loss_alexnet_lrn_tiny_s43.png
+python train.py --model alexnet --norm lrn --dataset tiny_imagenet --epochs 10 --seed 44 --no-augment --save-model checkpoints/alexnet_lrn_tiny_s44.pth --plot-file plots/loss_alexnet_lrn_tiny_s44.png
+python train.py --model alexnet --norm lrn --dataset tiny_imagenet --epochs 10 --seed 42 --lr 0.0003 --no-augment --save-model checkpoints/alexnet_lrn_tiny_lr3e-4.pth --plot-file plots/loss_alexnet_lrn_tiny_lr3e-4.png
+
+
+# ---------------------------------------------------------------------------
+# 8. Multi-seed repeats of the normalization study (CIFAR-10, 10 epochs; seed 42 is section 3)
+# ---------------------------------------------------------------------------
+python train.py --model alexnet --norm none --dataset cifar10 --epochs 10 --seed 43 --no-augment --save-model checkpoints/alexnet_none_s43.pth --plot-file plots/loss_alexnet_none_s43.png
+python train.py --model alexnet --norm none --dataset cifar10 --epochs 10 --seed 44 --no-augment --save-model checkpoints/alexnet_none_s44.pth --plot-file plots/loss_alexnet_none_s44.png
+python train.py --model alexnet --norm lrn --dataset cifar10 --epochs 10 --seed 43 --no-augment --save-model checkpoints/alexnet_lrn_s43.pth --plot-file plots/loss_alexnet_lrn_s43.png
+python train.py --model alexnet --norm lrn --dataset cifar10 --epochs 10 --seed 44 --no-augment --save-model checkpoints/alexnet_lrn_s44.pth --plot-file plots/loss_alexnet_lrn_s44.png
+python train.py --model alexnet --norm bn --dataset cifar10 --epochs 10 --seed 43 --no-augment --save-model checkpoints/alexnet_bn_s43.pth --plot-file plots/loss_alexnet_bn_s43.png
+python train.py --model alexnet --norm bn --dataset cifar10 --epochs 10 --seed 44 --no-augment --save-model checkpoints/alexnet_bn_s44.pth --plot-file plots/loss_alexnet_bn_s44.png
+
+
+# ---------------------------------------------------------------------------
+# 9. Benchmarks and diagnostics (run with the GPU otherwise idle)
+# ---------------------------------------------------------------------------
+python compare_models.py --dataset cifar10
+python demo_transforms.py
+python plot_ablation_summary.py
+# (reads the epoch tables in logs\lenet_cifar.log, lenet_modern_cifar.log, alexnet_none_cifar.log,
+#  alexnet_lrn_cifar.log, alexnet_no_aug_cifar.log, alexnet_with_aug_cifar.log and zoo_alexnet_cifar.log,
+#  then calls utils.visualization.plot_ablation_summary() to write plots/ablation_summary.png.
+#  A driver is needed because utils/visualization.py has no __main__ block, so
+#  "python -m utils.visualization --plot-ablation" does nothing, and train.py saves no history.)
+#
+# Logged runs of sections 2-4 + compare_models + the plot, in one command:  .\run_cifar_logs.ps1
