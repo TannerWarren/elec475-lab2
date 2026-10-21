@@ -81,8 +81,38 @@ class AlexNet64(nn.Module):
         #            -> nn.ReLU(inplace=True)
         #            -> nn.MaxPool2d(kernel_size=3, stride=2)
         # ======================================================================
+        def late_norm(num_features: int) -> nn.Module:
+            # Stages 3-5: BatchNorm only for 'bn'; LRN is applied in Stages 1-2 only (as in 2012 AlexNet)
+            return nn.BatchNorm2d(num_features) if self.norm_type == "bn" else nn.Identity()
+
         self.features = nn.Sequential(
-            # Replace with your 5-stage convolutional architecture
+            # Stage 1                                                        (B, 3, 64, 64)
+            nn.Conv2d(in_channels, 64, kernel_size=5, stride=2, padding=2),  # (B, 64, 32, 32)
+            get_norm_layer(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3, stride=2),                           # (B, 64, 15, 15)
+
+            # Stage 2
+            nn.Conv2d(64, 192, kernel_size=5, stride=1, padding=2),          # (B, 192, 15, 15)
+            get_norm_layer(192),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3, stride=2),                           # (B, 192, 7, 7)
+
+            # Stage 3
+            nn.Conv2d(192, 384, kernel_size=3, stride=1, padding=1),         # (B, 384, 7, 7)
+            late_norm(384),
+            nn.ReLU(inplace=True),
+
+            # Stage 4
+            nn.Conv2d(384, 384, kernel_size=3, stride=1, padding=1),         # (B, 384, 7, 7)
+            late_norm(384),
+            nn.ReLU(inplace=True),
+
+            # Stage 5
+            nn.Conv2d(384, 256, kernel_size=3, stride=1, padding=1),         # (B, 256, 7, 7)
+            late_norm(256),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3, stride=2),                           # (B, 256, 3, 3)
         )
 
         # ======================================================================
@@ -98,7 +128,13 @@ class AlexNet64(nn.Module):
         #   7. nn.Linear(in_features=1024, out_features=num_classes)
         # ======================================================================
         self.classifier = nn.Sequential(
-            # Replace with your dropout-regularized dense classifier
+            nn.Dropout(p=0.5),
+            nn.Linear(256 * 3 * 3, 1024),   # 2,304 -> 1,024
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.5),
+            nn.Linear(1024, 1024),
+            nn.ReLU(inplace=True),
+            nn.Linear(1024, num_classes),   # raw logits
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -109,7 +145,10 @@ class AlexNet64(nn.Module):
         # 3. Pass flattened vector through self.classifier: logits = self.classifier(x)
         # 4. Return logits
         # ======================================================================
-        pass
+        x = self.features(x)               # (B, 256, 3, 3)
+        x = torch.flatten(x, start_dim=1)  # (B, 2304)
+        logits = self.classifier(x)        # (B, num_classes)
+        return logits
 
 if __name__ == "__main__":
     from torchinfo import summary
