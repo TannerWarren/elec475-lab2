@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Datasets and large training artifacts (checkpoints go in the OnQ zip, not git)
+data/
+checkpoints/
+*.pth
+
+# Windows / OneNote clutter
+*.onetoc2
+Thumbs.db
+desktop.ini
+
+# Submission packaging and in-progress logs
+submission/
+*.zip
+logs/*.running.log
+
+# Files set aside by cleanup_lab2.ps1
+_archive/
